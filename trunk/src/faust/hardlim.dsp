@@ -27,7 +27,25 @@ with {
   envelop    = abs : max ~ (1.0/ma.SR) : rd.maxn(1024); 
 };
 
+softclip(th,x) = softsat(preclip(x)) with {
+  // The softsat function will map [-cth,cth] to [-1,1], but outside of that input range
+  // it is not well behaved.  So, hard clip to the valid input range first.
+  preclip(x) = aa.clip(-cth,cth,x);
+  // Defines a transfer function with linearly decaying derivative ouside of [-th,th]
+  softsat(x) = ba.if(ax<=th,x,ma.signum(x)*((cth-(ax+th)/2.0)*(ax-th)/2.0/(1.0-th) + th));
+  cth = 2-th;                
+  ax=abs(x);
+};
+softclip_stereo(th,x,y) = softclip(th,x),softclip(th,y);
 
-lim = compressor_stereo(100,0,0.0008,0.5);
+// ::: Clipper ::
+// Leave room for an occasional peak overshooting the limiter
+lim_ceiling = ba.db2linear(-3.0);   // below 0.0dB
+// This is where soft clipping will start
+clip_ceiling = ba.db2linear(-3.0);  // below 0.0dB
+
+                             
+lim = compressor_stereo(20,lim_ceiling,0.0008,0.5) : softclip_stereo(clip_ceiling) ;
 
 process = lim;
+
